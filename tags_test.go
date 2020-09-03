@@ -13,6 +13,7 @@ func Test_stripTagPrefix(t *testing.T) {
 		{"refs/tags/1.0.0", "1.0.0"},
 		{"refs/tags/v1.0.0", "1.0.0"},
 		{"v1.0.0", "1.0.0"},
+		{"v1.0.0-beta.1", "1.0.0-beta.1"},
 	}
 
 	for _, test := range tests {
@@ -51,6 +52,8 @@ func TestDefaultTags(t *testing.T) {
 
 func TestDefaultTagsError(t *testing.T) {
 	var tests = []string{
+		"refs/tags/1",
+		"refs/tags/1.0",
 		"refs/tags/x1.0.0",
 		"refs/tags/20190203",
 	}
