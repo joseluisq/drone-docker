@@ -2,6 +2,7 @@ package docker
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/coreos/go-semver/semver"
@@ -90,4 +91,22 @@ func stripTagPrefix(ref string) string {
 	ref = strings.TrimPrefix(ref, "refs/tags/")
 	ref = strings.TrimPrefix(ref, "v")
 	return ref
+}
+
+// DeduplicateStringSlice makes string slice deduplication in-place (comparable)
+// Adapted from https://github.com/golang/go/wiki/SliceTricks#in-place-deduplicate-comparable
+func DeduplicateStringSlice(stringSlice []string) []string {
+	sort.Strings(stringSlice)
+	j := 0
+	for i := 1; i < len(stringSlice); i++ {
+		if stringSlice[j] == stringSlice[i] {
+			continue
+		}
+		j++
+		// preserve the original data
+		// stringSlice[i], stringSlice[j] = stringSlice[j], stringSlice[i]
+		// only set what is required
+		stringSlice[j] = stringSlice[i]
+	}
+	return stringSlice[:j+1]
 }

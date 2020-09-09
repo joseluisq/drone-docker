@@ -14,37 +14,23 @@ make test
 Build the binaries with the following commands:
 
 ```sh
-export GOOS=linux
-export GOARCH=amd64
-export CGO_ENABLED=0
-export GO111MODULE=on
-
-go build -v -a -tags netgo -o release/linux/amd64/drone-docker ./cmd/drone-docker
+make build
 ```
 
-## Image
+## Docker
 
-Build the Docker images with the following commands:
+### Build
+
+Build the Docker image with the following commands:
 
 ```sh
-docker build \
-  --label org.label-schema.build-date=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-  --label org.label-schema.vcs-ref=$(git rev-parse --short HEAD) \
-  --file docker/docker/Dockerfile.linux.amd64 \
-  --tag plugins/docker .
+make image-build
 ```
 
-## Run
+### Run
 
 *Notice: Be aware that the Docker plugin currently requires privileged capabilities, otherwise the integrated Docker daemon is not able to start.*
 
 ```sh
-docker run --rm \
-  -e PLUGIN_TAG=latest \
-  -e PLUGIN_REPO=octocat/hello-world \
-  -e DRONE_COMMIT_SHA=d8dbe4d94f15fe89232e0402c6e8a0ddf21af3ab \
-  -v $(pwd):$(pwd) \
-  -w $(pwd) \
-  --privileged \
-    plugins/docker --dry-run
+make image-dryrun
 ```

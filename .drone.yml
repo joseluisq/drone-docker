@@ -1,6 +1,6 @@
 ---
 kind: pipeline
-name: testing
+name: development
 
 platform:
   os: linux
@@ -8,23 +8,23 @@ platform:
 
 steps:
 - name: vet
-  pull: always
   image: golang:1.15
   commands:
+  - go version
   - go vet ./...
   environment:
-    GO111MODULE: on
+    GO111MODULE: "on"
   volumes:
   - name: gopath
     path: /go
 
 - name: test
-  pull: always
   image: golang:1.15
   commands:
+  - go version
   - go test -cover ./...
   environment:
-    GO111MODULE: on
+    GO111MODULE: "on"
   volumes:
   - name: gopath
     path: /go
@@ -34,93 +34,111 @@ volumes:
   temp: {}
 
 trigger:
-  ref:
-  - refs/heads/master
-  - refs/tags/**
-  - refs/pull/**
+  event:
+    - push
+    - pull_request
+  branch:
+    - master
+    - develop
+    - feature/*
+    - bugfix/*
+    - hotfix/*
+
+
 
 ---
 kind: pipeline
-name: linux-amd64
+name: staging
 
 platform:
   os: linux
   arch: amd64
 
 steps:
-- name: build-push
-  pull: always
+- name: build
   image: golang:1.15
-  commands:
-  - go build -v -ldflags "-X main.version=${DRONE_COMMIT_SHA:0:8}" -a -tags netgo -o release/linux/amd64/drone-docker ./cmd/drone-docker
   environment:
-    CGO_ENABLED: 0
-    GO111MODULE: on
-  when:
-    event:
-      exclude:
-      - tag
-
-- name: build-tag
-  pull: always
-  image: golang:1.15
+    CGO_ENABLED: "0"
+    GO111MODULE: "on"
+    GOOS: linux
   commands:
-  - go build -v -ldflags "-X main.version=${DRONE_TAG##v}" -a -tags netgo -o release/linux/amd64/drone-docker ./cmd/drone-docker
-  environment:
-    CGO_ENABLED: 0
-    GO111MODULE: on
-  when:
-    event:
-    - tag
+  - go version
+  - "go build -v -ldflags \"-s -w -X main.version=${DRONE_TAG##v}\" -a -tags netgo -o release/linux/amd64/drone-docker ./cmd"
+  - du -sh release/linux/amd64/.
 
 - name: executable
-  pull: always
   image: golang:1.15
   commands:
-  - ./release/linux/amd64/drone-docker --help
+  - release/linux/amd64/drone-docker --help
 
 - name: dryrun
+  image: joseluisq/drone-docker
   pull: always
-  image: plugins/docker:linux-amd64
+  privileged: true
   settings:
-    daemon_off: false
+    repo: joseluisq/drone-docker
     dockerfile: docker/Dockerfile.linux.amd64
     dry_run: true
-    password:
-      from_secret: docker_password
-    repo: plugins
-    tags: linux-amd64
+    debug: true
     username:
-      from_secret: docker_username
-  when:
-    event:
-    - pull_request
+      from_secret: dockerhub_username
+    password:
+      from_secret: dockerhub_password
+    tags: 1
 
 - name: publish
+  image: joseluisq/drone-docker
   pull: always
-  image: plugins/docker:linux-amd64
+  privileged: true
   settings:
-    auto_tag: true
-    auto_tag_suffix: linux-amd64
-    daemon_off: false
+    repo: joseluisq/drone-docker
     dockerfile: docker/Dockerfile.linux.amd64
-    password:
-      from_secret: docker_password
-    repo: plugins
     username:
-      from_secret: docker_username
-  when:
-    event:
-      exclude:
-      - pull_request
+      from_secret: dockerhub_username
+    password:
+      from_secret: dockerhub_password
+    auto_tag: true
+    auto_tag_aliases:
+      - latest
 
 trigger:
   ref:
-  - refs/heads/master
-  - refs/tags/**
-  - refs/pull/**
+    include:
+    - refs/tags/v*
+    exclude:
+    - refs/tags/**rc**
+    - refs/tags/**alpha**
+    - refs/tags/**beta**
+    - refs/tags/**latest**
+    - refs/tags/**dev**
 
 depends_on:
-- testing
+- development
 
-...
+
+
+---
+kind: pipeline
+type: docker
+name: notification
+
+platform:
+  os: linux
+  arch: amd64
+
+steps:
+- name: notify
+  image: plugins/slack
+  settings:
+    webhook:
+      from_secret: slack_webhook
+    channel: ci-cd
+
+depends_on:
+- development
+- staging
+
+trigger:
+  status:
+  - success
+  - failure

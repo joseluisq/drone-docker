@@ -3,6 +3,7 @@ package docker
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,7 +19,7 @@ type (
 		Insecure      bool     // Docker daemon enable insecure registries
 		StorageDriver string   // Docker daemon storage driver
 		StoragePath   string   // Docker daemon storage path
-		Disabled      bool     // DOcker daemon is disabled (already running)
+		Disabled      bool     // Docker daemon is disabled (already running)
 		Debug         bool     // Docker daemon started in debug mode
 		Bip           string   // Docker daemon network bridge IP address
 		DNS           []string // Docker daemon dns server
@@ -81,10 +82,20 @@ func (p Plugin) Exec() error {
 	for i := 0; i < 15; i++ {
 		cmd := commandInfo()
 		err := cmd.Run()
+
 		if err == nil {
 			break
 		}
+
 		time.Sleep(time.Second * 1)
+	}
+
+	// Check if the daemon is not started throw the err
+	cmd := commandInfo()
+	err := cmd.Run()
+
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	// Create Auth Config File
@@ -124,37 +135,48 @@ func (p Plugin) Exec() error {
 	// add proxy build args
 	addProxyBuildArgs(&p.Build)
 
+	// prepare collection of commands to be executed later
 	var cmds []*exec.Cmd
-	cmds = append(cmds, commandVersion()) // docker version
-	cmds = append(cmds, commandInfo())    // docker info
+
+	// docker version
+	cmds = append(cmds, commandVersion())
+	// docker info
+	cmds = append(cmds, commandInfo())
 
 	// pre-pull cache images
 	for _, img := range p.Build.CacheFrom {
 		cmds = append(cmds, commandPull(img))
 	}
 
-	cmds = append(cmds, commandBuild(p.Build)) // docker build
+	// docker build
+	cmds = append(cmds, commandBuild(p.Build))
 
+	// append docker tag commands
 	for _, tag := range p.Build.Tags {
-		cmds = append(cmds, commandTag(p.Build, tag)) // docker tag
+		// docker tag
+		cmds = append(cmds, commandTag(p.Build, tag))
 
-		if p.Dryrun == false {
-			cmds = append(cmds, commandPush(p.Build, tag)) // docker push
+		if !p.Dryrun {
+			// docker push
+			cmds = append(cmds, commandPush(p.Build, tag))
 		}
 	}
 
 	if p.Cleanup {
-		cmds = append(cmds, commandRmi(p.Build.Name)) // docker rmi
-		cmds = append(cmds, commandPrune())           // docker system prune -f
+		// docker rmi
+		cmds = append(cmds, commandRmi(p.Build.Name))
+		// docker system prune -f
+		cmds = append(cmds, commandPrune())
 	}
 
-	// execute all commands in batch mode.
+	// execute all commands sequentially
 	for _, cmd := range cmds {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		trace(cmd)
 
 		err := cmd.Run()
+
 		if err != nil && isCommandPull(cmd.Args) {
 			fmt.Printf("Could not pull cache-from image %s. Ignoring...\n", cmd.Args[2])
 		} else if err != nil && isCommandPrune(cmd.Args) {
