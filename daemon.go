@@ -1,8 +1,7 @@
-// +build !windows
-
 package docker
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 )
@@ -13,13 +12,16 @@ const dockerHome = "/root/.docker/"
 
 func (p Plugin) startDaemon() {
 	cmd := commandDaemon(p.Daemon)
+
 	if p.Daemon.Debug {
+		fmt.Println("Docker daemon debug mode enabled.")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	} else {
 		cmd.Stdout = ioutil.Discard
 		cmd.Stderr = ioutil.Discard
 	}
+
 	go func() {
 		trace(cmd)
 		cmd.Run()

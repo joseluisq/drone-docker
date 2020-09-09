@@ -132,6 +132,12 @@ func main() {
 			Usage:  "default build tags",
 			EnvVar: "PLUGIN_DEFAULT_TAGS,PLUGIN_AUTO_TAG",
 		},
+		cli.StringSliceFlag{
+			Name:   "tags.auto_aliases",
+			Usage:  "build tag aliases",
+			Value:  &cli.StringSlice{},
+			EnvVar: "PLUGIN_AUTO_TAG_ALIASES",
+		},
 		cli.StringFlag{
 			Name:   "tags.suffix",
 			Usage:  "default build tags with suffix",
@@ -294,19 +300,31 @@ func run(c *cli.Context) error {
 	}
 
 	if c.Bool("tags.auto") {
-		if docker.UseDefaultTag( // return true if tag event or default branch
+		// return true if tag event or default branch
+		if docker.UseDefaultTag(
 			c.String("commit.ref"),
 			c.String("repo.branch"),
 		) {
-			tag, err := docker.DefaultTagSuffix(
+			tags, err := docker.DefaultTagSuffix(
 				c.String("commit.ref"),
 				c.String("tags.suffix"),
 			)
+
 			if err != nil {
 				logrus.Printf("cannot build docker image for %s, invalid semantic version", c.String("commit.ref"))
 				return err
 			}
-			plugin.Build.Tags = tag
+
+			tagAliases := c.StringSlice("tags.auto_aliases")
+
+			if len(tagAliases) > 0 {
+				// merge auto tag aliases and deduplicate them
+				tags = docker.DeduplicateStringSlice(
+					append(tags, tagAliases...),
+				)
+			}
+
+			plugin.Build.Tags = tags
 		} else {
 			logrus.Printf("skipping automated docker build for %s", c.String("commit.ref"))
 			return nil
