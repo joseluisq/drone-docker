@@ -8,7 +8,7 @@ platform:
 
 steps:
 - name: vet
-  image: golang:1.15
+  image: golang:1.15.3-alpine
   commands:
   - go version
   - go vet ./...
@@ -19,7 +19,7 @@ steps:
     path: /go
 
 - name: test
-  image: golang:1.15
+  image: golang:1.15.3-alpine
   commands:
   - go version
   - go test -cover ./...
@@ -56,7 +56,7 @@ platform:
 
 steps:
 - name: build
-  image: golang:1.15
+  image: golang:1.15.3-alpine
   environment:
     CGO_ENABLED: "0"
     GO111MODULE: "on"
@@ -67,7 +67,7 @@ steps:
   - du -sh release/linux/amd64/.
 
 - name: executable
-  image: golang:1.15
+  image: golang:1.15.3-alpine
   commands:
   - release/linux/amd64/drone-docker --help
 
