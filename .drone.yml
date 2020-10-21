@@ -72,7 +72,7 @@ steps:
   - release/linux/amd64/drone-docker --help
 
 - name: dryrun
-  image: joseluisq/drone-docker:1
+  image: joseluisq/drone-docker
   pull: always
   privileged: true
   settings:
@@ -87,7 +87,7 @@ steps:
     tags: 1
 
 - name: publish
-  image: joseluisq/drone-docker:1
+  image: joseluisq/drone-docker
   pull: always
   privileged: true
   settings:
