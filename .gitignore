@@ -3,3 +3,4 @@ coverage.out
 vendor
 **/.DS_Store
 **/*.log
+coverage*
